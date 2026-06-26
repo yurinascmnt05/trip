@@ -1,8 +1,22 @@
 /**
- * Trip Finance - App.js
+ * Trip Finance - App.js (Conectado ao Firebase Firestore)
+ * Sincronização automática em tempo real entre dispositivos.
  */
 
-const STORAGE_KEY = 'tripFinanceData';
+// 1. Sua configuração oficial do Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyDnPakKmHLv4OJyiaKGHSiutvWiKIX1fHY",
+    authDomain: "tripfinance-e0317.firebaseapp.com",
+    projectId: "tripfinance-e0317",
+    storageBucket: "tripfinance-e0317.firebasestorage.app",
+    messagingSenderId: "77973862918",
+    appId: "1:77973862918:web:3ba6f68c9ec57c7bf6e187"
+};
+
+// 2. Inicializar o app e o banco de dados
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC_REF = db.collection("tripData").doc("casalBackup");
 
 let appState = {
     budget: 0,
@@ -11,64 +25,81 @@ let appState = {
     travelHistory: []
 };
 
-function initData() {
-    const savedData = localStorage.getItem(STORAGE_KEY);
-    if (savedData) {
-        try {
-            const parsed = JSON.parse(savedData);
-            appState = { ...appState, ...parsed }; // Merging seguro
-        } catch (e) {}
-    }
+// ================= FIREBASE SYNC ENGINE =================
+
+// Escuta mudanças no banco em TEMPO REAL (Qualquer celular que atualizar)
+function initDataRealtime() {
+    DOC_REF.onSnapshot((doc) => {
+        if (doc.exists) {
+            appState = { ...appState, ...doc.data() };
+            refreshUI();
+            checkOnboarding(); // Verifica se precisa pedir o orçamento após carregar os dados
+        } else {
+            // Se for a primeira vez abrindo o app, cria o documento zerado na nuvem
+            saveDataToCloud();
+            checkOnboarding();
+        }
+    }, (error) => {
+        console.error("Erro ao sincronizar com o Firebase:", error);
+    });
 }
 
-function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+// Salva o estado atual na nuvem
+function saveDataToCloud() {
+    DOC_REF.set(appState).catch((err) => {
+        console.error("Erro ao salvar no Firebase:", err);
+        alert("Erro de conexão ao tentar salvar os dados.");
+    });
 }
 
+// Funções de manipulação atualizadas para disparar o salvamento na nuvem
 function setBudget(newBudget) {
     appState.budget = newBudget;
-    saveData();
+    saveDataToCloud();
 }
 
 function addExpense(name, amount, category) {
+    const currentUser = localStorage.getItem('trip_current_user') || 'Alguém';
     const expense = {
         id: Date.now().toString(),
         name,
         amount,
         category,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        addedBy: currentUser
     };
     appState.expenses.push(expense);
-    saveData();
+    saveDataToCloud();
 }
 
 function deleteExpense(id) {
-    appState.expenses = appState.expenses.filter(expense => expense.id !== id);
-    saveData();
+    appState.expenses = appState.expenses.filter(exp => exp.id !== id);
+    saveDataToCloud();
 }
 
 function updateProfileNames(newName) {
     appState.profileNames = newName;
-    saveData();
+    saveDataToCloud();
 }
 
 function addTrip(title, dateStr) {
-    const trip = {
+    appState.travelHistory.push({
         id: Date.now().toString(),
         title,
         date: dateStr
-    };
-    appState.travelHistory.push(trip);
-    saveData();
+    });
+    saveDataToCloud();
 }
 
 function deleteTrip(id) {
     appState.travelHistory = appState.travelHistory.filter(trip => trip.id !== id);
-    saveData();
+    saveDataToCloud();
 }
 
+// ================= MATEMÁTICA E UI =================
+
 function getTotalSpent() {
-    return appState.expenses.reduce((total, expense) => total + expense.amount, 0);
+    return appState.expenses.reduce((total, exp) => total + exp.amount, 0);
 }
 
 function getBalance() {
@@ -78,45 +109,11 @@ function getBalance() {
 function getProgressPercentage() {
     if (appState.budget <= 0) return 0;
     const spent = getTotalSpent();
-    const percentage = (spent / appState.budget) * 100;
-    return Math.min(percentage, 100);
+    return Math.min((spent / appState.budget) * 100, 100);
 }
 
-function exportData() {
-    const dataStr = JSON.stringify(appState, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trip-finance-export-${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-function importData(jsonData) {
-    try {
-        const parsed = JSON.parse(jsonData);
-        if (parsed.budget !== undefined && Array.isArray(parsed.expenses)) {
-            // Garante campos novos caso seja backup de versão antiga
-            appState = {
-                budget: 0,
-                expenses: [],
-                profileNames: 'Yuri & Danny',
-                travelHistory: [],
-                ...parsed
-            };
-            saveData();
-            return true;
-        } else {
-            alert('Erro na Importação: Arquivo JSON inválido.');
-            return false;
-        }
-    } catch (e) {
-        alert('Erro ao processar o arquivo JSON.');
-        return false;
-    }
+function formatCurrency(value) {
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 const CATEGORY_ICONS = {
@@ -129,92 +126,64 @@ const CATEGORY_ICONS = {
 };
 
 const els = {
-    displayBudget: document.getElementById('display-budget'), // Agora é clicável
+    displayBudget: document.getElementById('display-budget'),
     displaySpent: document.getElementById('display-spent'),
     displayBalance: document.getElementById('display-balance'),
     progressBar: document.getElementById('progress-bar'),
     progressText: document.getElementById('progress-text'),
-    
-    // Formulário
     expenseForm: document.getElementById('expense-form'),
     expenseName: document.getElementById('expense-name'),
     expenseAmount: document.getElementById('expense-amount'),
-    expenseCategory: document.getElementById('expense-category'), // Input hidden
-    
-    // Cards de Categoria
+    expenseCategory: document.getElementById('expense-category'),
     categoryCards: document.querySelectorAll('.category-card'),
-    
-    // Histórico
     expensesList: document.getElementById('expenses-list'),
-    
-    // Sincronização
-    exportBtn: document.getElementById('export-btn'),
-    importFile: document.getElementById('import-file'),
-    
-    // Perfil
     travelerNames: document.getElementById('traveler-names'),
     editProfileBtn: document.getElementById('edit-profile-btn'),
     tripList: document.getElementById('trip-list'),
     newTripForm: document.getElementById('new-trip-form'),
     tripName: document.getElementById('trip-name'),
-    tripDate: document.getElementById('trip-date')
+    tripDate: document.getElementById('trip-date'),
+    
+    // Onboarding Modals
+    modalIdentity: document.getElementById('modal-identity'),
+    identityInput: document.getElementById('identity-input'),
+    btnSaveIdentity: document.getElementById('btn-save-identity')
 };
-
-function formatCurrency(value) {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 function updateDashboardUI() {
     if (!els.displayBudget) return;
-    
     const totalSpent = getTotalSpent();
     const balance = getBalance();
-    
-    // Mantendo o ícone SVG de lápis no displayBudget
+
     els.displayBudget.innerHTML = `
         ${formatCurrency(appState.budget)}
         <svg class="edit-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
     `;
-    els.displaySpent.textContent = `-${formatCurrency(totalSpent)}`;
-    
-    if (els.displayBalance) {
-        els.displayBalance.textContent = `Restante: ${formatCurrency(balance)}`;
-    }
-    
+    if (els.displaySpent) els.displaySpent.textContent = `-${formatCurrency(totalSpent)}`;
+    if (els.displayBalance) els.displayBalance.textContent = `Restante: ${formatCurrency(balance)}`;
+
     const percentage = getProgressPercentage();
     if (els.progressText) {
         els.progressText.textContent = `${Math.floor(percentage)}%`;
         let leftPos = percentage;
-        
-        // Mantém a badge visível colada no início (0%) ou centralizada onde a barra enche
-        if (leftPos <= 5) {
-            els.progressText.style.left = `0`;
-        } else if (leftPos > 90) {
-            els.progressText.style.left = `calc(100% - 32px)`;
-        } else {
-            els.progressText.style.left = `calc(${leftPos}% - 16px)`;
-        }
+        if (leftPos <= 5) leftPos = 0;
+        else if (leftPos > 90) leftPos = 90;
+        els.progressText.style.left = leftPos === 0 ? "0" : `calc(${leftPos}% - 16px)`;
     }
-    
-    if (els.progressBar) {
-        els.progressBar.style.width = `${percentage}%`;
-    }
+    if (els.progressBar) els.progressBar.style.width = `${percentage}%`;
 }
 
 function renderExpensesList() {
     if (!els.expensesList) return;
-    
-    els.expensesList.innerHTML = ''; 
+    els.expensesList.innerHTML = '';
     const sortedExpenses = [...appState.expenses].reverse();
-    
     let currentMonth = '';
 
     sortedExpenses.forEach(expense => {
         const dateObj = new Date(expense.date);
-        
         const monthStr = dateObj.toLocaleDateString('pt-BR', { month: 'long' });
         const capitalizedMonth = monthStr.charAt(0).toUpperCase() + monthStr.slice(1);
-        
+
         if (capitalizedMonth !== currentMonth) {
             currentMonth = capitalizedMonth;
             const header = document.createElement('h4');
@@ -225,27 +194,22 @@ function renderExpensesList() {
 
         const itemDiv = document.createElement('div');
         itemDiv.className = 'expense-item';
-        
-        const timeStr = dateObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-        const dateStr = dateObj.toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'});
-        
+        const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = dateObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
         const iconSvg = CATEGORY_ICONS[expense.category] || CATEGORY_ICONS['Outros'];
-        
+
         itemDiv.innerHTML = `
             <div class="expense-info-wrap">
-                <div class="expense-icon">
-                    ${iconSvg}
-                </div>
+                <div class="expense-icon">${iconSvg}</div>
                 <div class="expense-details">
                     <strong>${expense.name}</strong>
                     <span>${timeStr} - ${dateStr} | ${expense.category}</span>
+                    <small style="display:block; margin-top: 2px; font-size: 11px; color: var(--text-muted);">Adicionado por ${expense.addedBy || 'Alguém'}</small>
                 </div>
             </div>
             <div class="expense-value-actions" style="display: flex; align-items: center; gap: 12px;">
-                <div class="expense-value">
-                    -${formatCurrency(expense.amount)}
-                </div>
-                <button class="delete-btn" data-id="${expense.id}" title="Excluir Gasto" style="background: transparent; border: none; cursor: pointer; color: #ff6b6b; padding: 4px; display: flex; align-items: center;">
+                <div class="expense-value">-${formatCurrency(expense.amount)}</div>
+                <button class="delete-btn" data-id="${expense.id}" style="background:transparent; border:none; cursor:pointer; color:#ff6b6b; padding:4px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
             </div>
@@ -256,31 +220,19 @@ function renderExpensesList() {
 
 function renderTrips() {
     if (!els.tripList) return;
-    
-    if (els.travelerNames) {
-        els.travelerNames.textContent = appState.profileNames || 'Yuri & Danny';
-    }
-    
+    if (els.travelerNames) els.travelerNames.textContent = appState.profileNames || 'Yuri & Danny';
     els.tripList.innerHTML = '';
-    
-    const sortedTrips = [...appState.travelHistory].reverse();
-    
-    sortedTrips.forEach(trip => {
+
+    [...appState.travelHistory].reverse().forEach(trip => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'trip-item';
-        
         const dateObj = new Date(trip.date + 'T12:00:00');
-        const dateStr = dateObj.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit', year: '2-digit'});
-        
+        const dateStr = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
         itemDiv.innerHTML = `
-            <div class="trip-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-            </div>
-            <div class="trip-details" style="flex: 1;">
-                <strong>${trip.title}</strong>
-                <span>${dateStr}</span>
-            </div>
-            <button class="delete-trip-btn" data-id="${trip.id}" title="Excluir Viagem" style="background: transparent; border: none; cursor: pointer; color: #ff6b6b; padding: 4px; display: flex; align-items: center;">
+            <div class="trip-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+            <div class="trip-details" style="flex: 1;"><strong>${trip.title}</strong><span>${dateStr}</span></div>
+            <button class="delete-trip-btn" data-id="${trip.id}" style="background:transparent; border:none; cursor:pointer; color:#ff6b6b; padding:4px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
         `;
@@ -294,28 +246,39 @@ function refreshUI() {
     renderTrips();
 }
 
-// ================= LISTENERS =================
+// ================= ONBOARDING LOGIC =================
 
-// Edição Intuitiva do Orçamento
-if (els.displayBudget) {
-    els.displayBudget.addEventListener('click', () => {
-        const current = appState.budget || 0;
-        const newValueStr = prompt('Qual o novo valor do seu Orçamento Previsto? (Somente números)', current);
-        
-        if (newValueStr !== null) {
-            const newValue = parseFloat(newValueStr.replace(',', '.'));
-            if (!isNaN(newValue) && newValue >= 0) {
-                setBudget(newValue);
-                refreshUI();
-            } else {
-                alert('Por favor, insira um valor numérico válido.');
-            }
+function checkOnboarding() {
+    const currentUser = localStorage.getItem('trip_current_user');
+    
+    if (!currentUser) {
+        if (els.modalIdentity) els.modalIdentity.classList.add('active');
+    }
+}
+
+if (els.btnSaveIdentity) {
+    els.btnSaveIdentity.addEventListener('click', () => {
+        const name = els.identityInput.value.trim();
+        if (name) {
+            localStorage.setItem('trip_current_user', name);
+            els.modalIdentity.classList.remove('active');
+        } else {
+            alert('Por favor, informe o seu nome para continuar.');
         }
     });
 }
 
-// Seleção das Categorias no Grid
-if (els.categoryCards && els.categoryCards.length > 0) {
+// ================= EVENT LISTENERS =================
+
+if (els.displayBudget) {
+    els.displayBudget.addEventListener('click', () => {
+        const current = appState.budget || 0;
+        const val = prompt('Novo valor do Orçamento Total:', current);
+        if (val !== null && !isNaN(parseFloat(val))) setBudget(parseFloat(val));
+    });
+}
+
+if (els.categoryCards) {
     els.categoryCards.forEach(card => {
         card.addEventListener('click', () => {
             els.categoryCards.forEach(c => c.classList.remove('selected'));
@@ -325,91 +288,43 @@ if (els.categoryCards && els.categoryCards.length > 0) {
     });
 }
 
-// Submissão do Formulário
 if (els.expenseForm) {
     els.expenseForm.addEventListener('submit', (e) => {
-        e.preventDefault(); 
-        
+        e.preventDefault();
         const name = els.expenseName.value.trim();
         const amount = parseFloat(els.expenseAmount.value);
         const category = els.expenseCategory.value;
-        
-        if (!category) {
-            alert('Por favor, selecione uma Categoria clicando nos ícones acima!');
-            return;
-        }
-        
-        if (name && !isNaN(amount) && amount > 0) {
-            addExpense(name, amount, category); 
-            refreshUI();
-            
-            // Resetar formulário
+
+        if (!category) return alert('Selecione uma categoria clicando em um dos cards!');
+        if (name && amount > 0) {
+            addExpense(name, amount, category);
             els.expenseForm.reset();
             els.expenseCategory.value = '';
             els.categoryCards.forEach(c => c.classList.remove('selected'));
-            
-            alert('Gasto adicionado com sucesso!');
         }
     });
 }
 
-// Export/Import
-if (els.exportBtn) els.exportBtn.addEventListener('click', () => exportData());
-if (els.importFile) {
-    els.importFile.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const success = importData(event.target.result);
-            if (success) {
-                refreshUI(); 
-                alert('Dados sincronizados com sucesso!');
-            }
-        };
-        reader.readAsText(file);
-        e.target.value = ''; 
-    });
-}
-
-// Lidar com a deleção na lista (Event Delegation)
 if (els.expensesList) {
     els.expensesList.addEventListener('click', (e) => {
         const btn = e.target.closest('.delete-btn');
-        if (btn) {
-            const id = btn.dataset.id;
-            if (confirm('Tem certeza que deseja excluir esta despesa?')) {
-                deleteExpense(id);
-                refreshUI(); // Atualiza barra de progresso, saldo e lista na hora
-            }
-        }
+        if (btn && confirm('Excluir gasto?')) deleteExpense(btn.dataset.id);
     });
 }
 
-// Lógica da Aba Perfil
 if (els.editProfileBtn) {
     els.editProfileBtn.addEventListener('click', () => {
-        const currentName = appState.profileNames || 'Yuri & Danny';
-        const newName = prompt('Quem está viajando?', currentName);
-        if (newName && newName.trim() !== '') {
-            updateProfileNames(newName.trim());
-            refreshUI();
-        }
+        const val = prompt('Quem está viajando?', appState.profileNames);
+        if (val && val.trim()) updateProfileNames(val.trim());
     });
 }
 
 if (els.newTripForm) {
     els.newTripForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const title = els.tripName.value.trim();
-        const dateStr = els.tripDate.value;
-        
-        if (title && dateStr) {
-            addTrip(title, dateStr);
-            refreshUI();
+        if (els.tripName.value && els.tripDate.value) {
+            addTrip(els.tripName.value.trim(), els.tripDate.value);
             els.newTripForm.reset();
-            alert('Viagem registrada com sucesso!');
         }
     });
 }
@@ -417,20 +332,10 @@ if (els.newTripForm) {
 if (els.tripList) {
     els.tripList.addEventListener('click', (e) => {
         const btn = e.target.closest('.delete-trip-btn');
-        if (btn) {
-            const id = btn.dataset.id;
-            if (confirm('Tem certeza que deseja apagar este histórico de viagem?')) {
-                deleteTrip(id);
-                refreshUI();
-            }
-        }
+        if (btn && confirm('Excluir viagem?')) deleteTrip(btn.dataset.id);
     });
 }
 
-// Iniciar
-initApp();
-
-function initApp() {
-    initData();
-    refreshUI();
-}
+// INICIAR CONEXÃO EM TEMPO REAL E VERIFICAR IDENTIDADE
+checkOnboarding(); // Verifica identidade logo de cara (antes mesmo da nuvem carregar)
+initDataRealtime();
