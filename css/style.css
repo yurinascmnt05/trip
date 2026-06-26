@@ -1,0 +1,496 @@
+:root {
+    --primary-green: #00d09c;
+    /* Verde brilhante da inspiração */
+    --primary-dark: #025943;
+    /* Texto escuro no verde */
+    --bg-light: #f4fdf4;
+    /* Fundo claro muito suave */
+    --bg-white: #ffffff;
+    --text-dark: #0c2041;
+    /* Azul marinho para textos */
+    --text-muted: #829ab1;
+    --text-blue: #2a76f2;
+    /* Azul dos valores */
+    --icon-bg: #387cf6;
+    /* Azul dos ícones */
+    --input-bg: #e3f6ea;
+    /* Fundo verde claro dos inputs */
+    --font-family: 'Inter', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: #333;
+    /* Fundo escuro para desktop focar no celular */
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+/* Container que imita um celular */
+.mobile-container {
+    width: 100%;
+    min-height: 100vh;
+    background-color: var(--primary-green);
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Telas maiores (Desktop preview) */
+@media (min-width: 415px) {
+    .mobile-container {
+        max-width: 414px;
+        margin: 40px 0;
+        border-radius: 40px;
+        height: 896px;
+        /* Altura padrão de celular grande */
+        overflow: hidden;
+    }
+}
+
+/* TOP HEADER */
+.top-header {
+    padding: 40px 24px 30px 24px;
+    color: white;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.greeting h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.greeting p {
+    font-size: 14px;
+    color: var(--primary-dark);
+    font-weight: 500;
+}
+
+.notification-icon {
+    width: 36px;
+    height: 36px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-dark);
+    text-decoration: none;
+}
+
+.notification-icon svg {
+    margin: 0;
+    padding: 0;
+    display: block;
+    transform: translateX(-1px);
+    /* Compensa oticamente o peso das barras à direita */
+}
+
+/* CARDS DE BALANÇO */
+.balance-cards {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.balance-card {
+    flex: 1;
+}
+
+.divider {
+    width: 1px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.4);
+    margin: 0 16px;
+}
+
+.card-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--primary-dark);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.balance-card h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: white;
+}
+
+.text-blue {
+    color: var(--text-blue) !important;
+}
+
+/* PROGRESS BAR */
+.progress-container {
+    margin-bottom: 20px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+}
+
+.budget-limit {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.progress-track {
+    width: 100%;
+    height: 18px;
+    background-color: white;
+    border-radius: 18px;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--primary-dark);
+    border-radius: 18px;
+    width: 0%;
+    transition: width 0.4s ease;
+}
+
+.progress-badge {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Atualizado via JS */
+    height: 100%;
+    background-color: var(--primary-dark);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0 8px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: left 0.4s ease;
+}
+
+.progress-subtitle {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+/* SETUP DE ORÇAMENTO (INLINE) - Removido mas mantido no código caso precise */
+.budget-setup-inline {
+    display: none;
+}
+
+/* MAIN CONTENT */
+.main-content {
+    background-color: var(--bg-light);
+    border-top-left-radius: 40px;
+    border-top-right-radius: 40px;
+    flex: 1;
+    padding: 32px 24px 32px 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.content-header h3 {
+    font-size: 16px;
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+.sync-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.sync-actions button,
+.sync-actions label {
+    background: white;
+    border: none;
+    color: var(--primary-dark);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* LISTA DE DESPESAS */
+.expenses-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.expense-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.expense-info-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.expense-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--icon-bg);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.expense-details strong {
+    display: block;
+    font-size: 15px;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+    font-weight: 700;
+}
+
+.expense-details span {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.expense-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-blue);
+}
+
+/* FORMULÁRIO DE ADIÇÃO */
+.add-expense-container {
+    background-color: white;
+    padding: 24px;
+    border-radius: 30px;
+    margin-top: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.add-expense-container h3 {
+    font-size: 16px;
+    color: var(--text-dark);
+    margin-bottom: 20px;
+    font-weight: 700;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    background-color: var(--input-bg);
+    border: none;
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-family: var(--font-family);
+    color: var(--text-dark);
+    font-weight: 600;
+    outline: none;
+    appearance: none;
+}
+
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: "▼";
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--primary-green);
+    pointer-events: none;
+}
+
+/* CATEGORY GRID */
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.category-card {
+    background-color: #8db5f8;
+    /* Azul super claro da inspiração */
+    color: white;
+    border-radius: 20px;
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.category-card svg {
+    color: white;
+}
+
+.category-card span {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Estado Selecionado */
+.category-card.selected {
+    background-color: var(--icon-bg);
+    /* Azul forte */
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(56, 124, 246, 0.4);
+}
+
+/* Orçamento Intuitivo (Clicável) */
+.editable-budget {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+}
+
+.editable-budget:hover {
+    opacity: 0.8;
+}
+
+.edit-icon {
+    opacity: 0.6;
+}
+
+.btn-save {
+    width: 100%;
+    background-color: var(--primary-green);
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+    font-family: var(--font-family);
+}
+
+/* BOTTOM NAVIGATION BAR */
+.bottom-nav {
+    background-color: var(--bg-white);
+    height: 72px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+    padding: 0 20px;
+    margin-top: auto;
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+@media (min-width: 415px) {
+    .bottom-nav {
+        border-bottom-left-radius: 40px;
+        border-bottom-right-radius: 40px;
+    }
+}
+
+.nav-item {
+    color: var(--text-muted);
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    transition: color 0.2s;
+}
+
+.nav-item.active {
+    color: var(--primary-green);
+}
+
+.nav-item svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* NAVEGAÇÃO HISTÓRICO */
+.back-button {
+    color: var(--primary-dark);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+}
+
+.date-header {
+    font-size: 13px;
+    color: var(--text-dark);
+    font-weight: 700;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    text-transform: capitalize;
+}
+
+.date-header:first-child {
+    margin-top: 0;
+}
